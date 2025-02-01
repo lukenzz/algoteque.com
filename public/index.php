@@ -9,23 +9,28 @@ use Recruitment\Service\QuoteCalculator;
 
 header('Content-Type: application/json');
 
-try {
-//    $input = file_get_contents('php://input');
-//    if (!json_validate($input)) {
-//        throw new InvalidArgumentException('Invalid JSON request');
-//    }
-//    $requestData = json_decode($input, true);
+$development = false;
 
-    $json = '{
+try {
+    if ($development) {
+        $requestData = '{
     "topics": {
         "reading": 20,
         "math": 50,
         "science": 30,
         "history": 15,
         "art": 10
+        }
+    }';
+        $requestData = json_decode($requestData, true);
+    } else {
+        $input = file_get_contents('php://input');
+        if (!json_validate($input)) {
+            throw new InvalidArgumentException('Invalid JSON request');
+        }
+        $requestData = json_decode($input, true);
     }
-}';
-    $requestData = json_decode($json, true);
+
     $service = new QuoteService();
 
     $providerConfig = json_encode([
