@@ -6,12 +6,9 @@ namespace Recruitment\Model;
 
 class TopicRequest
 {
-    private array $topics;
-
-    public function __construct(array $topics)
-    {
-        $this->topics = $topics;
-    }
+    public function __construct(
+        private array $topics
+    ) {}
 
     public function getTopThreeTopics(): array
     {
