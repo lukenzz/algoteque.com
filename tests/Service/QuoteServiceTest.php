@@ -2,47 +2,152 @@
 
 declare(strict_types=1);
 
-namespace Recruitment\Tests\Service;
+namespace App\QuoteBundle\Tests\Service;
 
-use Recruitment\Service\QuoteService;
-use Recruitment\Service\QuoteCalculator;
+use App\QuoteBundle\Exception\InvalidConfigurationException;
+use App\QuoteBundle\Exception\InvalidRequestException;
+use App\QuoteBundle\Interface\QuoteCalculatorInterface;
+use App\QuoteBundle\Service\QuoteService;
+use App\QuoteBundle\Service\QuoteCalculator;
+use App\Service\LoggerService;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Monolog\Logger;
+use Monolog\Handler\TestHandler;
 
 class QuoteServiceTest extends TestCase
 {
     private QuoteService $service;
+    private MockObject|QuoteCalculatorInterface $calculator;
+    private MockObject|LoggerService $logger;
 
     protected function setUp(): void
     {
-        $this->service = new QuoteService();
-        
-        $config = json_encode([
-            'provider_topics' => [
-                'provider_a' => 'math+science',
-                'provider_b' => 'reading+science',
-                'provider_c' => 'history+math'
-            ]
-        ]);
-        
-        $this->service->loadProviders($config);
+        $this->calculator = $this->createMock(QuoteCalculatorInterface::class);
+        $this->logger = $this->createMock(LoggerService::class);
+
+        $this->service = new QuoteService(
+            $this->calculator,
+            $this->logger
+        );
     }
 
-    public function testGenerateQuotes(): void
+    public function testLoadProvidersSuccessfully(): void
     {
+        $configPath = sys_get_temp_dir() . '/test_config.json';
+        $configData = [
+            'provider_topics' => [
+                'provider_a' => 'math|science',
+                'provider_b' => 'reading|science'
+            ]
+        ];
+        file_put_contents($configPath, json_encode($configData));
+
+        $this->logger
+            ->expects($this->once())
+            ->method('logMessage')
+            ->with($this->stringContains('Providers generated successfully: count 2'));
+
+        $this->service->loadProviders($configPath);
+        unlink($configPath);
+    }
+
+    public function testGenerateQuotesSuccessfully(): void
+    {
+        $configPath = sys_get_temp_dir() . '/test_config.json';
+        $configData = [
+            'provider_topics' => [
+                'provider_a' => 'math|science',
+                'provider_b' => 'reading|science'
+            ]
+        ];
+        file_put_contents($configPath, json_encode($configData));
+        $this->service->loadProviders($configPath);
+
         $request = [
             'topics' => [
-                'reading' => 20,
                 'math' => 50,
-                'science' => 30,
-                'history' => 15,
-                'art' => 10
+                'science' => 30
             ]
         ];
 
-        $quotes = $this->service->generateQuotes(new QuoteCalculator(), $request);
+        $this->calculator
+            ->expects($this->exactly(2))
+            ->method('calculateQuote')
+            ->willReturnOnConsecutiveCalls(8.0, 5.0);
 
-        $this->assertEqualsWithDelta(8.0, $quotes['provider_a'], 0.01);
-        $this->assertEqualsWithDelta(5.0, $quotes['provider_b'], 0.01);
-        $this->assertEqualsWithDelta(10, $quotes['provider_c'], 0.01);
+        $this->logger
+            ->expects($this->once())
+            ->method('logMessage')
+            ->with($this->stringContains('Quotes generated successfully'));
+
+        $quotes = $this->service->generateQuotes($request);
+
+        $this->assertEquals(8.0, $quotes['provider_a']);
+        $this->assertEquals(5.0, $quotes['provider_b']);
+
+        unlink($configPath);
+    }
+
+    public function testLoadProvidersWithInvalidConfig(): void
+    {
+        $configPath = sys_get_temp_dir() . '/invalid_config.json';
+        file_put_contents($configPath, '{"invalid": "config"}');
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->service->loadProviders($configPath);
+        unlink($configPath);
+    }
+
+    public function testLoadProvidersWithNonExistentFile(): void
+    {
+        $this->expectException(InvalidConfigurationException::class);
+        $this->service->loadProviders('/non/existent/path.json');
+    }
+
+    public function testGenerateQuotesWithEmptyTopics(): void
+    {
+        $this->expectException(InvalidRequestException::class);
+        $this->expectExceptionMessage('Topics cannot be empty');
+        $this->service->generateQuotes(['topics' => []]);
+    }
+
+    public function testGenerateQuotesWithInvalidTopicCount(): void
+    {
+        $this->expectException(InvalidRequestException::class);
+        $this->expectExceptionMessage('Topic count must be a positive integer');
+        $this->service->generateQuotes([
+            'topics' => [
+                'math' => -1
+            ]
+        ]);
+    }
+
+    public function testGenerateQuotesWithNoMatches(): void
+    {
+        $configPath = sys_get_temp_dir() . '/test_config.json';
+        $configData = [
+            'provider_topics' => [
+                'provider_a' => 'math|science'
+            ]
+        ];
+        file_put_contents($configPath, json_encode($configData));
+        $this->service->loadProviders($configPath);
+
+        $request = [
+            'topics' => [
+                'art' => 50,
+                'music' => 30
+            ]
+        ];
+
+        $this->calculator
+            ->method('calculateQuote')
+            ->willReturn(0.0);
+
+        $quotes = $this->service->generateQuotes($request);
+        $this->assertEmpty($quotes);
+
+        unlink($configPath);
     }
 }
