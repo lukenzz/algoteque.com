@@ -1,6 +1,7 @@
 name: Quote Bundle Recommendation System API
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
