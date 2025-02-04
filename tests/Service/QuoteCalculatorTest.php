@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Recruitment\Tests\Service;
+namespace App\Tests\Service;
 
-use Recruitment\Model\DtoProvider;
-use Recruitment\Model\TopicRequest;
-use Recruitment\Service\QuoteCalculator;
+use App\QuoteBundle\Model\DtoProvider;
+use App\QuoteBundle\Model\TopicRequest;
+use App\QuoteBundle\Service\QuoteCalculator;
 use PHPUnit\Framework\TestCase;
 
 class QuoteCalculatorTest extends TestCase
@@ -18,45 +18,47 @@ class QuoteCalculatorTest extends TestCase
         $this->calculator = new QuoteCalculator();
     }
 
-    public function testCalculateQuoteForTwoMatches(): void
+    /**
+     * @dataProvider provideCalculateQuoteData
+     */
+    public function testCalculateQuote(array $providerTopics, array $requestTopics, float $expectedQuote): void
     {
-        $provider = new DtoProvider('test_provider', ['math', 'science']);
-        $request = new TopicRequest([
-            'math' => 50,
-            'science' => 30,
-            'reading' => 20
-        ]);
+        $provider = new DtoProvider('test_provider', $providerTopics);
+        $request = new TopicRequest($requestTopics);
 
         $quote = $this->calculator->calculateQuote($provider, $request);
         
-        $this->assertEqualsWithDelta(8.0, $quote, 0.01);
+        $this->assertEqualsWithDelta($expectedQuote, $quote, 0.01);
     }
 
-    public function testCalculateQuoteForSingleMatch(): void
+    public static function provideCalculateQuoteData(): array
     {
-        $provider = new DtoProvider('test_provider', ['math']);
-        $request = new TopicRequest([
-            'math' => 50,
-            'science' => 30,
-            'reading' => 20
-        ]);
-
-        $quote = $this->calculator->calculateQuote($provider, $request);
-        
-        $this->assertEqualsWithDelta(10, $quote, 0.01);
-    }
-
-    public function testCalculateQuoteForNoMatches(): void
-    {
-        $provider = new DtoProvider('test_provider', ['art']);
-        $request = new TopicRequest([
-            'math' => 50,
-            'science' => 30,
-            'reading' => 20
-        ]);
-
-        $quote = $this->calculator->calculateQuote($provider, $request);
-        
-        $this->assertEquals(0.0, $quote);
+        return [
+            'two_matches_high_priority' => [
+                ['math', 'science'],
+                ['math' => 50, 'science' => 30, 'reading' => 20],
+                8.0
+            ],
+            'single_match_highest_priority' => [
+                ['math'],
+                ['math' => 50, 'science' => 30, 'reading' => 20],
+                10.0
+            ],
+            'single_match_second_priority' => [
+                ['science'],
+                ['math' => 50, 'science' => 30, 'reading' => 20],
+                7.5
+            ],
+            'single_match_third_priority' => [
+                ['reading'],
+                ['math' => 50, 'science' => 30, 'reading' => 20],
+                6.0
+            ],
+            'no_matches' => [
+                ['art'],
+                ['math' => 50, 'science' => 30, 'reading' => 20],
+                0.0
+            ]
+        ];
     }
 }

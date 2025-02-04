@@ -1,2 +1,5 @@
 vendor
 .idea
+logs/*
+!logs/.gitkeep
+.env

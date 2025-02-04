@@ -1,6 +1,6 @@
 {
-    "name": "recruitment/szymon_lukaszczyk",
-    "description": "Course Bundle Recommendation System API",
+    "name": "app/szymon_lukaszczyk",
+    "description": "Quote Bundle Recommendation System API",
     "type": "project",
     "license": "MIT",
     "authors": [
@@ -10,19 +10,30 @@
         }
     ],
     "require": {
-        "php": "^8.3"
+        "php": "^8.3",
+        "monolog/monolog": "^3.0",
+        "symfony/http-foundation": "^7.0",
+        "symfony/dotenv": "^7.0",
+        "symfony/yaml": "^7.2",
+        "symfony/dependency-injection": "^7.2",
+        "symfony/config": "^7.2"
     },
     "require-dev": {
-        "phpunit/phpunit": "^10.0"
+        "phpunit/phpunit": "^10.0",
+        "phpstan/phpstan": "^1.0"
     },
     "autoload": {
         "psr-4": {
-            "Recruitment\\": "src/"
+            "App\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Recruitment\\Tests\\": "tests/"
+            "App\\Tests\\": "tests/"
         }
+    },
+    "scripts": {
+        "test": "php vendor/bin/phpunit tests",
+        "stan": "php vendor/bin/phpstan.phar analyse src tests"
     }
 }

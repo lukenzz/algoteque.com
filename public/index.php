@@ -4,55 +4,50 @@ declare(strict_types=1);
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use Recruitment\Service\QuoteService;
-use Recruitment\Service\QuoteCalculator;
+use Symfony\Component\Dotenv\Dotenv;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
+use Symfony\Component\Config\FileLocator;
 
-header('Content-Type: application/json');
+$dotenv = new Dotenv();
+$dotenv->load(__DIR__ . '/../.env');
 
-$development = false;
+error_reporting(E_ALL);
+ini_set('display_errors', $_ENV['APP_DEBUG']);
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/../logs/php_errors.log');
+
+$container = new ContainerBuilder();
+$loader = new YamlFileLoader($container, new FileLocator(__DIR__ . '/../config/'));
+$loader->load('services.yaml');
+$container->compile();
+
+$logger = $container->get(App\Service\LoggerService::class);
+$request = Request::createFromGlobals();
+
+$logger->logMessage(
+    sprintf('Start generate quotes')
+);
 
 try {
-    if ($development) {
-        $requestData = '{
-    "topics": {
-        "reading": 20,
-        "math": 50,
-        "science": 30,
-        "history": 15,
-        "art": 10
-        }
-    }';
-        $requestData = json_decode($requestData, true);
-    } else {
-        $input = file_get_contents('php://input');
-        if (!json_validate($input)) {
-            throw new InvalidArgumentException('Invalid JSON request');
-        }
-        $requestData = json_decode($input, true);
-    }
+    $controller = $container->get(App\QuoteBundle\Controller\BundleQuoteController::class);
+    $response = $controller->generateQuotes($request);
+} catch (\Throwable $e) {
+    $logger->logMessage(
+        sprintf(
+            'Error processing request: %s, trace: %s',
+            $e->getMessage(),
+            $e->getTraceAsString()
+        ),
+        'error'
+    );
 
-    $service = new QuoteService();
-
-    $providerConfig = json_encode([
-        'provider_topics' => [
-            'provider_a' => 'math+science',
-            'provider_b' => 'reading+science',
-            'provider_c' => 'history+math'
-        ]
-    ], JSON_THROW_ON_ERROR);
-
-    $service->loadProviders($providerConfig);
-
-    $quotes = $service->generateQuotes(new QuoteCalculator(), $requestData);
-    
-    echo json_encode([
-        'status' => 'success',
-        'quotes' => $quotes
-    ]);
-} catch (Exception $e) {
-    http_response_code(400);
-    echo json_encode([
+    $response = new JsonResponse([
         'status' => 'error',
         'message' => $e->getMessage()
-    ]);
+    ], 400);
 }
+
+$response->send();

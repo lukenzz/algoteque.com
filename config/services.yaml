@@ -1,0 +1,24 @@
+services:
+  App\:
+    resource: '../src/*'
+    exclude:
+      - '../src/QuoteBundle/Model/*'
+    public: true
+    autoconfigure: true
+    autowire: true
+
+  Monolog\Logger:
+    arguments:
+      $name: 'app'
+    public: true
+
+  App\Service\LoggerService:
+    arguments:
+      $logger: '@Monolog\Logger'
+    public: true
+
+  App\QuoteBundle\Service\QuoteService:
+    arguments:
+      $logger: '@App\Service\LoggerService'
+      $calculator: '@App\QuoteBundle\Interface\QuoteCalculatorInterface'
+    public: true

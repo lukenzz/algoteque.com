@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Recruitment\Model;
+namespace App\QuoteBundle\Model;
 
-class TopicRequest
+use App\QuoteBundle\Interface\TopicRequestInterface;
+
+class TopicRequest implements TopicRequestInterface
 {
     public function __construct(
         private array $topics
